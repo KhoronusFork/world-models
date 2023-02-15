@@ -1,7 +1,6 @@
 """ Training VAE """
 import argparse
-from os.path import join, exists
-from os import mkdir
+import os
 
 import torch
 import torch.utils.data
@@ -122,13 +121,14 @@ def test():
     return test_loss
 
 # check vae dir exists, if not, create it
-vae_dir = join(args.logdir, 'vae')
-if not exists(vae_dir):
-    mkdir(vae_dir)
-    mkdir(join(vae_dir, 'samples'))
+vae_dir = os.path.join(args.logdir, 'vae')
+isExist = os.path.exists(vae_dir)
+if not isExist:
+    os.makedirs(vae_dir)
+    os.makedirs(os.path.join(vae_dir, 'samples'))
 
-reload_file = join(vae_dir, 'best.tar')
-if not args.noreload and exists(reload_file):
+reload_file = os.path.join(vae_dir, 'best.tar')
+if not args.noreload and os.path.exists(reload_file):
     state = torch.load(reload_file)
     print("Reloading model at epoch {}"
           ", with test error {}".format(
@@ -149,8 +149,8 @@ for epoch in range(1, args.epochs + 1):
     earlystopping.step(test_loss)
 
     # checkpointing
-    best_filename = join(vae_dir, 'best.tar')
-    filename = join(vae_dir, 'checkpoint.tar')
+    best_filename = os.path.join(vae_dir, 'best.tar')
+    filename = os.path.join(vae_dir, 'checkpoint.tar')
     is_best = not cur_best or test_loss < cur_best
     if is_best:
         cur_best = test_loss
@@ -171,7 +171,7 @@ for epoch in range(1, args.epochs + 1):
             sample = torch.randn(RED_SIZE, LSIZE).to(device)
             sample = model.decoder(sample).cpu()
             save_image(sample.view(64, 3, RED_SIZE, RED_SIZE),
-                       join(vae_dir, 'samples/sample_' + str(epoch) + '.png'))
+                       os.path.join(vae_dir, 'samples/sample_' + str(epoch) + '.png'))
 
     if earlystopping.stop:
         print("End of Training because of early stopping at epoch {}".format(epoch))
