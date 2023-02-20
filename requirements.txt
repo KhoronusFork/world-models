@@ -1,6 +1,7 @@
 cma
 argparse
-gymnasium[all]
+gymnasium[box2d]
 box2d
 tqdm
 numpy
+opencv-python
