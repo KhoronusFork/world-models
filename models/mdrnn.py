@@ -7,6 +7,13 @@ import torch.nn as nn
 import torch.nn.functional as f
 from torch.distributions.normal import Normal
 
+import sys
+sys.path.append('../../sigpro/dlf_tf')
+from dlf_tf import TFNet
+from dlf_tf.utils import *
+sys.path.append('../../sigpro/dlf')
+from dlf.model import *
+
 def gmm_loss(batch, mus, sigmas, logpi, reduce=True): # pylint: disable=too-many-arguments
     """ Computes the gmm loss.
 
@@ -61,9 +68,58 @@ class _MDRNNBase(nn.Module):
 
 class MDRNN(_MDRNNBase):
     """ MDRNN model for multi steps forward """
-    def __init__(self, latents, actions, hiddens, gaussians):
+    def __init__(self, latents, actions, hiddens, gaussians, mode:str):
         super().__init__(latents, actions, hiddens, gaussians)
-        self.rnn = nn.LSTM(latents + actions, hiddens)
+        self.mode = mode
+        if mode == 'lstm':
+            self.rnn = nn.LSTM(latents + actions, hiddens)
+        elif mode == 'dlf':
+            print('latents:{} actions:{}'.format(latents, actions))
+            print('hiddens:{}'.format(hiddens))
+            sys_order = 2
+            num_head = 10#1000
+            num_layers = 3
+            L = 1
+            Features = latents + actions
+            bidirectional = False
+            jitter = 0.00     
+            FeaturesOut = hiddens # 2048
+            sys_order_expected = FeaturesOut / (num_head * num_layers) # 2048 FeaturesOut in dreamer
+            print('sys_order_expected:{}'.format(sys_order_expected))
+            sys_order = int(sys_order_expected)
+            period = L if L > sys_order else sys_order + 1
+            print('sys_order:{}'.format(sys_order))
+            print('TFNet')
+            #self.rnnmodel = TFNet(input_size = Features, sys_order = sys_order, num_head = num_head, output_size = FeaturesOut, period = period, num_layers = num_layers, bidirectional = bidirectional, jitter = jitter)
+            if True:
+                self.rnn = DLF(input_size = Features, 
+                                output_size = FeaturesOut, 
+                                num_layers = num_layers, 
+                                bidirectional = bidirectional, 
+                                block=dict(
+                                    type='ActivationBlock',
+                                    kwargs=dict(
+                                        filter=dict(
+                                            type='PCLinearFilter', 
+                                            kwargs = dict(
+                                            sys_order = sys_order, 
+                                            num_head = num_head, period = period)))))
+            #count_parameters(self.rnnmodel)
+            # Plot generator
+            self.do_plot = False
+            self.num_iterations_plot = 0
+            self.bin_num_iterations_plot = 500
+            if self.do_plot:
+                self.fig_in, self.line_in, self.line_pred_in = create_plot(num_state = 1, max_len = Features, ylim = [(-3,3)], title = 'Input')
+                self.fig, self.line, self.line_pred = create_plot(num_state = 1, max_len = FeaturesOut, ylim = [(-3,3)], title = "TrainModel")
+                self.hf = plt.figure()
+                self.ha = self.hf.add_subplot(111, projection='3d', title='prediction')
+                self.hf1 = plt.figure()
+                self.ha1 = self.hf1.add_subplot(111, projection='3d', title='input')
+                self.hf2 = plt.figure()
+                self.ha2 = self.hf2.add_subplot(111, projection='3d', title='latent')
+        else:
+            print('mdrnn: mode uknown:{}'.format(mode))
 
     def forward(self, actions, latents): # pylint: disable=arguments-differ
         """ MULTI STEPS forward.
@@ -83,7 +139,11 @@ class MDRNN(_MDRNNBase):
         seq_len, bs = actions.size(0), actions.size(1)
 
         ins = torch.cat([actions, latents], dim=-1)
-        outs, _ = self.rnn(ins)
+        if self.mode == 'lstm':
+            outs, _ = self.rnn(ins)
+        else:
+            outs = self.rnn(ins)
+
         gmm_outs = self.gmm_linear(outs)
 
         stride = self.gaussians * self.latents
@@ -107,9 +167,44 @@ class MDRNN(_MDRNNBase):
 
 class MDRNNCell(_MDRNNBase):
     """ MDRNN model for one step forward """
-    def __init__(self, latents, actions, hiddens, gaussians):
+    def __init__(self, latents, actions, hiddens, gaussians, mode:str):
         super().__init__(latents, actions, hiddens, gaussians)
-        self.rnn = nn.LSTMCell(latents + actions, hiddens)
+        self.mode = mode
+        if mode == 'lstm':
+            self.rnn = nn.LSTMCell(latents + actions, hiddens)
+        elif mode == 'dlf':
+            print('latents:{} actions:{}'.format(latents, actions))
+            print('hiddens:{}'.format(hiddens))
+            sys_order = 2
+            num_head = 10#1000
+            num_layers = 3
+            L = 1
+            Features = latents + actions
+            bidirectional = False
+            jitter = 0.00     
+            FeaturesOut = hiddens # 2048
+            sys_order_expected = FeaturesOut / (num_head * num_layers) # 2048 FeaturesOut in dreamer
+            print('sys_order_expected:{}'.format(sys_order_expected))
+            sys_order = int(sys_order_expected)
+            period = L if L > sys_order else sys_order + 1
+            print('sys_order:{}'.format(sys_order))
+            print('TFNet')
+            #self.rnnmodel = TFNet(input_size = Features, sys_order = sys_order, num_head = num_head, output_size = FeaturesOut, period = period, num_layers = num_layers, bidirectional = bidirectional, jitter = jitter)
+            if True:
+                self.rnn = DLF(input_size = Features, 
+                                output_size = FeaturesOut, 
+                                num_layers = num_layers, 
+                                bidirectional = bidirectional, 
+                                block=dict(
+                                    type='ActivationBlock',
+                                    kwargs=dict(
+                                        filter=dict(
+                                            type='PCLinearFilter', 
+                                            kwargs = dict(
+                                            sys_order = sys_order, 
+                                            num_head = num_head, period = period)))))            
+        else:
+            print('mdrnn: mode uknown:{}'.format(mode))
 
     def forward(self, action, latent, hidden): # pylint: disable=arguments-differ
         """ ONE STEP forward.
@@ -129,7 +224,13 @@ class MDRNNCell(_MDRNNBase):
         """
         in_al = torch.cat([action, latent], dim=1)
 
-        next_hidden = self.rnn(in_al, hidden)
+        if self.mode == 'lstm':
+            next_hidden = self.rnn(in_al, hidden)
+        else:
+            next_hidden0 = self.rnn(in_al, hidden[0])
+            next_hidden1 = self.rnn(in_al, hidden[1])
+            next_hidden = [next_hidden0, next_hidden1]
+
         out_rnn = next_hidden[0]
 
         out_full = self.gmm_linear(out_rnn)

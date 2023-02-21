@@ -6,6 +6,7 @@ import torch
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--logdir', type=str, help='Where models are stored.')
+parser.add_argument('--mode', type=str, help='RNN mode (lstm, dlf).')
 args = parser.parse_args()
 
 ctrl_file = join(args.logdir, 'ctrl', 'best.tar')
@@ -15,7 +16,7 @@ assert exists(ctrl_file),\
 
 device = torch.device('cpu')
 
-generator = RolloutGenerator(args.logdir, device, 1000)
+generator = RolloutGenerator(args.logdir, device, 1000, args.mode)
 
 with torch.no_grad():
     generator.rollout(None, render=True)

@@ -5,3 +5,8 @@ box2d
 tqdm
 numpy
 opencv-python
+prettytable
+pyyaml
+hydra-core
+einops
+opt_einsum

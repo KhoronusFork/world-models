@@ -32,6 +32,7 @@ parser.add_argument('--display', action='store_true', help="Use progress bars if
                     "specified.")
 parser.add_argument('--max-workers', type=int, help='Maximum number of workers.',
                     default=32)
+parser.add_argument('--mode', type=str, help='RNN mode (lstm, dlf).')
 args = parser.parse_args()
 
 # Max number of workers. M
@@ -55,6 +56,7 @@ ctrl_dir = join(args.logdir, 'ctrl')
 if not exists(ctrl_dir):
     mkdir(ctrl_dir)
 
+print('WARNING: Redirect out/err in:{}'.format(tmp_dir))
 
 ################################################################################
 #                           Thread routines                                    #
@@ -90,7 +92,7 @@ def slave_routine(p_queue, r_queue, e_queue, p_index):
     sys.stderr = open(join(tmp_dir, str(getpid()) + '.err'), 'a')
 
     with torch.no_grad():
-        r_gen = RolloutGenerator(args.logdir, device, time_limit)
+        r_gen = RolloutGenerator(args.logdir, device, time_limit, args.mode)
 
         while e_queue.empty():
             if p_queue.empty():

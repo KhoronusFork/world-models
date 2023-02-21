@@ -43,17 +43,17 @@ python trainvae.py --logdir exp_dir
 ### 3. Training the MDN-RNN
 The MDN-RNN is trained using the `trainmdrnn.py` file, e.g.
 ```bash
-python trainmdrnn.py --logdir exp_dir
+python trainmdrnn.py --logdir exp_dir --mode dlf
 ```
 A VAE must have been trained in the same `exp_dir` for this script to work.
 ### 4. Training and testing the Controller
 Finally, the controller is trained using CMA-ES, e.g.
 ```bash
-python traincontroller.py --logdir exp_dir --n-samples 4 --pop-size 4 --target-return 950 --display
+python traincontroller.py --logdir exp_dir --n-samples 4 --pop-size 4 --target-return 950 --display --mode dlf
 ```
 You can test the obtained policy with `test_controller.py` e.g.
 ```bash
-python test_controller.py --logdir exp_dir
+python test_controller.py --logdir exp_dir --mode dlf
 ```
 
 ### Notes
