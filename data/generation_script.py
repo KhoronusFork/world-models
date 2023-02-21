@@ -16,7 +16,6 @@ parser.add_argument('--policy', type=str, choices=['brown', 'white'],
                     help="Directory to store rollout directories of each thread",
                     default='brown')
 args = parser.parse_args()
-
 rpt = args.rollouts // args.threads + 1
 
 def _threaded_generation(i):
@@ -32,6 +31,10 @@ def _threaded_generation(i):
     call(cmd, shell=True)
     return True
 
+def main():
 
-with Pool(args.threads) as p:
-    p.map(_threaded_generation, range(args.threads))
+    with Pool(args.threads) as p:
+        p.map(_threaded_generation, range(args.threads))
+
+if __name__ == "__main__": # Here
+    main()
