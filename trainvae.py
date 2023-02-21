@@ -120,59 +120,64 @@ def test():
     print('====> Test set loss: {:.4f}'.format(test_loss))
     return test_loss
 
-# check vae dir exists, if not, create it
-vae_dir = os.path.join(args.logdir, 'vae')
-isExist = os.path.exists(vae_dir)
-if not isExist:
-    os.makedirs(vae_dir)
-    os.makedirs(os.path.join(vae_dir, 'samples'))
+def main():
+    # check vae dir exists, if not, create it
+    vae_dir = os.path.join(args.logdir, 'vae')
+    isExist = os.path.exists(vae_dir)
+    if not isExist:
+        os.makedirs(vae_dir)
+        os.makedirs(os.path.join(vae_dir, 'samples'))
 
-reload_file = os.path.join(vae_dir, 'best.tar')
-if not args.noreload and os.path.exists(reload_file):
-    state = torch.load(reload_file)
-    print("Reloading model at epoch {}"
-          ", with test error {}".format(
-              state['epoch'],
-              state['precision']))
-    model.load_state_dict(state['state_dict'])
-    optimizer.load_state_dict(state['optimizer'])
-    scheduler.load_state_dict(state['scheduler'])
-    earlystopping.load_state_dict(state['earlystopping'])
-
-
-cur_best = None
-
-for epoch in range(1, args.epochs + 1):
-    train(epoch)
-    test_loss = test()
-    scheduler.step(test_loss)
-    earlystopping.step(test_loss)
-
-    # checkpointing
-    best_filename = os.path.join(vae_dir, 'best.tar')
-    filename = os.path.join(vae_dir, 'checkpoint.tar')
-    is_best = not cur_best or test_loss < cur_best
-    if is_best:
-        cur_best = test_loss
-
-    save_checkpoint({
-        'epoch': epoch,
-        'state_dict': model.state_dict(),
-        'precision': test_loss,
-        'optimizer': optimizer.state_dict(),
-        'scheduler': scheduler.state_dict(),
-        'earlystopping': earlystopping.state_dict()
-    }, is_best, filename, best_filename)
+    reload_file = os.path.join(vae_dir, 'best.tar')
+    if not args.noreload and os.path.exists(reload_file):
+        state = torch.load(reload_file)
+        print("Reloading model at epoch {}"
+            ", with test error {}".format(
+                state['epoch'],
+                state['precision']))
+        model.load_state_dict(state['state_dict'])
+        optimizer.load_state_dict(state['optimizer'])
+        scheduler.load_state_dict(state['scheduler'])
+        earlystopping.load_state_dict(state['earlystopping'])
 
 
+    cur_best = None
 
-    if not args.nosamples:
-        with torch.no_grad():
-            sample = torch.randn(RED_SIZE, LSIZE).to(device)
-            sample = model.decoder(sample).cpu()
-            save_image(sample.view(64, 3, RED_SIZE, RED_SIZE),
-                       os.path.join(vae_dir, 'samples/sample_' + str(epoch) + '.png'))
+    for epoch in range(1, args.epochs + 1):
+        train(epoch)
+        test_loss = test()
+        scheduler.step(test_loss)
+        earlystopping.step(test_loss)
 
-    if earlystopping.stop:
-        print("End of Training because of early stopping at epoch {}".format(epoch))
-        break
+        # checkpointing
+        best_filename = os.path.join(vae_dir, 'best.tar')
+        filename = os.path.join(vae_dir, 'checkpoint.tar')
+        is_best = not cur_best or test_loss < cur_best
+        if is_best:
+            cur_best = test_loss
+
+        save_checkpoint({
+            'epoch': epoch,
+            'state_dict': model.state_dict(),
+            'precision': test_loss,
+            'optimizer': optimizer.state_dict(),
+            'scheduler': scheduler.state_dict(),
+            'earlystopping': earlystopping.state_dict()
+        }, is_best, filename, best_filename)
+
+
+
+        if not args.nosamples:
+            with torch.no_grad():
+                sample = torch.randn(RED_SIZE, LSIZE).to(device)
+                sample = model.decoder(sample).cpu()
+                save_image(sample.view(64, 3, RED_SIZE, RED_SIZE),
+                        os.path.join(vae_dir, 'samples/sample_' + str(epoch) + '.png'))
+
+        if earlystopping.stop:
+            print("End of Training because of early stopping at epoch {}".format(epoch))
+            break
+
+
+if __name__ == "__main__": # Here
+    main()
