@@ -5,6 +5,7 @@ Paper: Ha and Schmidhuber, "World Models", 2018. https://doi.org/10.5281/zenodo.
 
 ## Prerequisites
 
+This implementation works on Linux only (Tested on PopOS), due to multiprocess and pickle issues on Windows machines. Untested on MacOS.  
 The implementation is based on Python3 and PyTorch, check their website [here](https://pytorch.org) for installation instructions. The rest of the requirements is included in the [requirements file](requirements.txt), to install them:
 ```bash
 pip3 install -r requirements.txt
