@@ -9,9 +9,6 @@ from torch.distributions.normal import Normal
 
 try:
     import sys
-    sys.path.append('../../sigpro/dlf_tf')
-    from dlf_tf import TFNet
-    from dlf_tf.utils import *
     sys.path.append('../../sigpro/dlf')
     from dlf.model import *
 except ImportError:
@@ -85,28 +82,27 @@ class MDRNN(_MDRNNBase):
             L = 1
             Features = latents + actions
             bidirectional = False
-            jitter = 0.00     
             FeaturesOut = hiddens # 2048
             sys_order_expected = FeaturesOut / (num_head * num_layers) # 2048 FeaturesOut in dreamer
             print('sys_order_expected:{}'.format(sys_order_expected))
             sys_order = int(sys_order_expected)
-            period = L if L > sys_order else sys_order + 1
             print('sys_order:{}'.format(sys_order))
             print('TFNet')
             #self.rnnmodel = TFNet(input_size = Features, sys_order = sys_order, num_head = num_head, output_size = FeaturesOut, period = period, num_layers = num_layers, bidirectional = bidirectional, jitter = jitter)
             if True:
                 self.rnn = DLF(input_size = Features, 
-                                output_size = FeaturesOut, 
-                                num_layers = num_layers, 
-                                bidirectional = bidirectional, 
-                                block=dict(
-                                    type='ActivationBlock',
-                                    kwargs=dict(
-                                        filter=dict(
-                                            type='PCLinearFilter', 
-                                            kwargs = dict(
-                                            sys_order = sys_order, 
-                                            num_head = num_head, period = period)))))
+                               output_size = FeaturesOut, 
+                               num_layers = num_layers, 
+                               bidirectional = bidirectional, 
+                               block=dict(
+                                   type='ActivationBlock',
+                                   kwargs=dict(
+                                       filter=dict(
+                                           type='PolyCoef', 
+                                           kwargs = dict(
+                                           sys_order = sys_order, 
+                                           num_head = num_head)))))
+
             #count_parameters(self.rnnmodel)
             # Plot generator
             self.do_plot = False
@@ -184,28 +180,28 @@ class MDRNNCell(_MDRNNBase):
             L = 1
             Features = latents + actions
             bidirectional = False
-            jitter = 0.00     
             FeaturesOut = hiddens # 2048
             sys_order_expected = FeaturesOut / (num_head * num_layers) # 2048 FeaturesOut in dreamer
             print('sys_order_expected:{}'.format(sys_order_expected))
             sys_order = int(sys_order_expected)
-            period = L if L > sys_order else sys_order + 1
             print('sys_order:{}'.format(sys_order))
             print('TFNet')
+            self.dlf_sys_order = sys_order
+            self.dlf_num_head = 10#1000
             #self.rnnmodel = TFNet(input_size = Features, sys_order = sys_order, num_head = num_head, output_size = FeaturesOut, period = period, num_layers = num_layers, bidirectional = bidirectional, jitter = jitter)
             if True:
                 self.rnn = DLF(input_size = Features, 
-                                output_size = FeaturesOut, 
-                                num_layers = num_layers, 
-                                bidirectional = bidirectional, 
-                                block=dict(
-                                    type='ActivationBlock',
-                                    kwargs=dict(
-                                        filter=dict(
-                                            type='PCLinearFilter', 
-                                            kwargs = dict(
-                                            sys_order = sys_order, 
-                                            num_head = num_head, period = period)))))            
+                               output_size = FeaturesOut, 
+                               num_layers = num_layers, 
+                               bidirectional = bidirectional, 
+                               block=dict(
+                                   type='ActivationBlock',
+                                   kwargs=dict(
+                                       filter=dict(
+                                           type='PolyCoef', 
+                                           kwargs = dict(
+                                           sys_order = sys_order, 
+                                           num_head = num_head)))))
         else:
             print('mdrnn: mode uknown:{}'.format(mode))
 
@@ -230,9 +226,26 @@ class MDRNNCell(_MDRNNBase):
         if self.mode == 'lstm':
             next_hidden = self.rnn(in_al, hidden)
         else:
-            next_hidden0 = self.rnn(in_al, hidden[0])
-            next_hidden1 = self.rnn(in_al, hidden[1])
-            next_hidden = [next_hidden0, next_hidden1]
+            #print(f'hidden:{hidden}')
+            if self.mode == 'dlf':
+                h_0 = dict()
+                h_1 = dict()
+                for i in range(0, self.rnn.num_layers):
+                    #print(f'h0:{hidden[0].shape}')
+                    #print(f'h1:{hidden[1].shape}')
+                    h0 = hidden[0].unsqueeze(1)
+                    h1 = hidden[1].unsqueeze(1)
+                    size = self.dlf_sys_order*self.dlf_num_head
+                    #print(f'h0:{h0.shape} h1:{h1.shape} size:{size}')
+                    h_0['layer_' + str(i)] = torch.nn.functional.interpolate(h0, size, mode='linear')
+                    h_1['layer_' + str(i)] = torch.nn.functional.interpolate(h1, size, mode='linear')
+                next_hidden0 = self.rnn(in_al, h_0)
+                next_hidden1 = self.rnn(in_al, h_1)
+                next_hidden = [next_hidden0, next_hidden1]
+            else:
+                next_hidden0 = self.rnn(in_al, hidden[0])
+                next_hidden1 = self.rnn(in_al, hidden[1])
+                next_hidden = [next_hidden0, next_hidden1]
 
         out_rnn = next_hidden[0]
 

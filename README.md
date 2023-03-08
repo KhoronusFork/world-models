@@ -52,6 +52,7 @@ Finally, the controller is trained using CMA-ES, e.g.
 ```bash
 python traincontroller.py --logdir exp_dir --n-samples 4 --pop-size 4 --target-return 950 --display --mode dlf
 ```
+***note*** add `--max-workers 8` or lower, if there is not enough memory. Please check errors in the exp_dir folder (.err).  
 You can test the obtained policy with `test_controller.py` e.g.
 ```bash
 python test_controller.py --logdir exp_dir --mode dlf
